@@ -1,0 +1,373 @@
+drop table Account cascade constraints;
+drop table Credit_Card cascade constraints;
+drop table Profile cascade constraints;
+drop table Movie cascade constraints;
+drop table Rental_History cascade constraints;
+drop table Actor cascade constraints;
+drop table Played_In cascade constraints;
+drop table Genre cascade constraints;
+drop table Pref_Genre cascade constraints;
+drop table Mov_Genre cascade constraints;
+
+create table Account(
+A_ID char(7),
+first_name varchar(20),
+last_name varchar(20),
+PRIMARY KEY (A_ID));
+
+create table Credit_Card(
+A_ID char(7),
+credit_number char(16),
+security_code char(3),
+PRIMARY KEY (A_ID, credit_number),
+FOREIGN KEY (A_ID) REFERENCES Account
+ON DELETE cascade);
+
+create table Profile(
+A_ID char(7),
+profile_name varchar(20),
+PRIMARY KEY (A_ID, profile_name),
+FOREIGN KEY (A_ID) REFERENCES Account
+ON DELETE cascade);
+
+create table Movie(
+M_ID char(8),
+m_name varchar(40),
+year char(4),
+producer varchar(20),
+av_rating float,
+PRIMARY KEY (M_ID));
+
+create table Rental_History(
+A_ID char(7),
+profile_name varchar(20),
+M_ID char(8),
+rating integer CHECK(rating >= 1 AND rating <= 5),
+PRIMARY KEY (A_ID, profile_name, M_ID),
+FOREIGN KEY (A_ID, profile_name) REFERENCES Profile
+ON DELETE cascade,
+FOREIGN KEY (M_ID) REFERENCES Movie
+ON DELETE cascade);
+
+create table Actor(
+actor_ID char(7),
+first_name varchar(20),
+last_name varchar(20),
+PRIMARY KEY (actor_ID));
+
+create table Played_In(
+M_ID char(8),
+actor_ID char(7),
+PRIMARY KEY (M_ID, actor_ID),
+FOREIGN KEY (M_ID) REFERENCES Movie
+ON DELETE cascade,
+FOREIGN KEY (actor_ID) REFERENCES Actor
+ON DELETE cascade);
+
+create table Genre(
+genre varchar(20),
+PRIMARY KEY (genre));
+
+create table Pref_Genre(
+A_ID char(7),
+profile_name varchar(20),
+genre varchar(20),
+PRIMARY KEY (A_ID, profile_name, genre),
+FOREIGN KEY (A_ID, profile_name) REFERENCES Profile
+ON DELETE cascade,
+FOREIGN KEY (genre) REFERENCES Genre
+ON DELETE cascade);
+
+create table Mov_Genre(
+M_ID char(8),
+genre varchar(20),
+PRIMARY KEY (M_ID),
+FOREIGN KEY (M_ID) REFERENCES Movie
+ON DELETE cascade,
+FOREIGN KEY (genre) REFERENCES Genre
+ON DELETE cascade);
+
+create or replace Trigger maxProfile
+before insert on Profile
+for each row
+Declare
+	numberOfProfiles integer;
+	tooMany Exception;
+Begin
+	select count(*) into numberOfProfiles
+	from Profile P
+	where P.A_ID = :NEW.A_ID;
+if (numberOfProfiles >= 5) then
+	raise tooMany;
+end if;
+
+Exception
+	When tooMany then
+		Raise_application_error(-20001,'Limit of 5 Profiles');
+End;
+/
+
+create or replace Trigger updateRating
+before insert on Rental_History
+for each row
+Declare
+	numberOfRatings integer;
+        sumOfRatings    integer;
+Begin
+	select (count(*)+1) into numberOfRatings
+	from Rental_History R
+	where R.M_ID = :NEW.M_ID;
+
+        select (COALESCE(sum(R.rating),0) + :NEW.rating) into sumOfRatings
+        from Rental_History R
+        where R.M_ID = :NEW.M_ID;
+
+        update Movie
+        set Movie.av_rating = ((sumOfRatings * 1.0)/numberOfRatings)
+        where Movie.M_ID = :NEW.M_ID; 
+End;
+/
+
+insert into Account 
+values('0000001', 'Aaron', 'Rogers');
+insert into Account 
+values('0000002', 'Bill', 'Gates');
+insert into Account 
+values('0000003', 'Chris', 'Johnson');
+insert into Account 
+values('0000004', 'Derek', 'Jeter');
+insert into Account 
+values('0000005', 'Elon', 'Musk');
+
+insert into Credit_Card
+values('0000001', '1111222233334444', '111');
+insert into Credit_Card
+values('0000002', '2222333344445555', '222');
+insert into Credit_Card
+values('0000003', '3333444455556666', '333');
+insert into Credit_Card
+values('0000004', '4444555566667777', '444');
+insert into Credit_Card
+values('0000005', '5555666677778888', '555');
+insert into Credit_Card
+values('0000005', '6666777788889999', '777');
+
+insert into Profile
+values('0000001', 'user1');
+insert into Profile
+values('0000001', 'user2');
+insert into Profile
+values('0000002', 'user1');
+insert into Profile
+values('0000002', 'user2');
+insert into Profile
+values('0000003', 'mom');
+insert into Profile
+values('0000003', 'dad');
+insert into Profile
+values('0000004', 'boys');
+insert into Profile
+values('0000004', 'girls');
+insert into Profile
+values('0000005', 'parents');
+insert into Profile
+values('0000005', 'kids');
+
+insert into Movie
+values('00000001', 'Good Will Hunting', '1997', 'A Band Apart', 0);
+insert into Movie
+values('00000002', 'A Beautiful Mind', '2001', 'Ron Howard', 0);
+insert into Movie
+values('00000003', 'Star Wars', '1977', 'George Lucas', 0);
+insert into Movie
+values('00000004', 'Star Trek', '2009', 'JJ Abrams', 0);
+insert into Movie
+values('00000005', 'The Godfather', '1972', 'Albert Ruddy', 0);
+insert into Movie
+values('00000006', 'Star Wars: the Empire Strikes Back', '1980', 'George Lucus', 0);
+insert into Movie
+values('00000007', 'Star Wars: Return of the Jedi', '1983', 'George Lucus', 0);
+insert into Movie
+values('00000008', 'Raiders of the Lost Ark', '1981', 'Frank Marshall', 0);
+insert into Movie
+values('00000009', 'Indiana Jones and the temple of Doom', '1984', 'Frank Marshall', 0);
+insert into Movie
+values('00000010', 'Mr. Deeds', '2002', 'Sid Ganis', 0);
+
+insert into Rental_History
+values('0000001', 'user1', '00000001', 4);
+insert into Rental_History
+values('0000001', 'user2', '00000004', 1);
+insert into Rental_History
+values('0000001', 'user2', '00000006', 5);
+insert into Rental_History
+values('0000002', 'user1', '00000007', 3);
+insert into Rental_History
+values('0000002', 'user1', '00000004', 2);
+insert into Rental_History
+values('0000002', 'user2', '00000010', 4);
+insert into Rental_History
+values('0000003', 'mom', '00000003', 4);
+insert into Rental_History
+values('0000003', 'dad', '00000002', 2);
+insert into Rental_History
+values('0000003', 'dad', '00000008', 5);
+insert into Rental_History
+values('0000004', 'boys', '00000007', 3);
+insert into Rental_History
+values('0000004', 'girls', '00000003', 2);
+insert into Rental_History
+values('0000005', 'parents', '00000001', 5);
+
+insert into Actor
+values('0000001', 'Alex', 'Smith');
+insert into Actor
+values('0000002', 'Bob', 'Barker'); 
+insert into Actor
+values('0000003', 'Chase', 'Utley'); 
+insert into Actor
+values('0000004', 'Dennis', 'Rodman'); 
+insert into Actor
+values('0000005', 'Emmit', 'Smith');
+insert into Actor
+values('0000006', 'Frank', 'Sinatra'); 
+insert into Actor
+values('0000007', 'Guy', 'Friendly'); 
+insert into Actor
+values('0000008', 'Hector', 'Bishop'); 
+insert into Actor
+values('0000009', 'Izzy', 'Izaela'); 
+insert into Actor
+values('0000010', 'Jack', 'Ripper'); 
+insert into Actor
+values('0000011', 'Ken', 'Griffy'); 
+insert into Actor
+values('0000012', 'Luke', 'Saintly');
+insert into Actor
+values('0000013', 'Mike', 'Pirolo'); 
+insert into Actor
+values('0000014', 'Nate', 'Burbank'); 
+insert into Actor
+values('0000015', 'Oscar', 'Velezuela'); 
+insert into Actor
+values('0000016', 'Peter', 'Cottontail');
+insert into Actor
+values('0000017', 'Renzo', 'Tejada');
+insert into Actor
+values('0000018', 'Sam', 'Wentworth'); 
+insert into Actor
+values('0000019', 'Tom', 'Wilson'); 
+insert into Actor
+values('0000020', 'Victor', 'Ortez');
+
+insert into Played_In
+values('00000001', '0000001');
+insert into Played_In
+values('00000005', '0000002');
+insert into Played_In
+values('00000002', '0000003');
+insert into Played_In
+values('00000004', '0000004');
+insert into Played_In
+values('00000008', '0000005');
+insert into Played_In
+values('00000009', '0000006');
+insert into Played_In
+values('00000010', '0000007');
+insert into Played_In
+values('00000009', '0000008');
+insert into Played_In
+values('00000007', '0000009');
+insert into Played_In
+values('00000006', '0000010');
+insert into Played_In
+values('00000003', '0000011');
+insert into Played_In
+values('00000001', '0000012');
+insert into Played_In
+values('00000002', '0000013');
+insert into Played_In
+values('00000010', '0000014');
+insert into Played_In
+values('00000008', '0000015');
+insert into Played_In
+values('00000009', '0000016');
+insert into Played_In
+values('00000006', '0000017');
+insert into Played_In
+values('00000004', '0000018');
+insert into Played_In
+values('00000005', '0000019');
+insert into Played_In
+values('00000002', '0000020');
+insert into Played_In
+values('00000002', '0000001');
+insert into Played_In
+values('00000003', '0000002');
+
+insert into Genre
+values('Comedy');
+insert into Genre
+values('Action');
+insert into Genre
+values('Adventure');
+insert into Genre
+values('Horror');
+insert into Genre
+values('Documentary');
+insert into Genre
+values('Romantic Comedy');
+insert into Genre
+values('Western');
+insert into Genre
+values('Animated');
+
+insert into Pref_Genre
+values('0000001', 'user1', 'Comedy');
+insert into Pref_Genre
+values('0000001', 'user2', 'Adventure');
+insert into Pref_Genre
+values('0000002', 'user1', 'Horror');
+insert into Pref_Genre
+values('0000002', 'user2', 'Documentary');
+insert into Pref_Genre
+values('0000003', 'mom', 'Documentary');
+insert into Pref_Genre
+values('0000003', 'dad', 'Comedy');
+insert into Pref_Genre
+values('0000004', 'boys', 'Horror');
+insert into Pref_Genre
+values('0000004', 'girls', 'Romantic Comedy');
+insert into Pref_Genre
+values('0000005', 'kids', 'Animated');
+insert into Pref_Genre
+values('0000001', 'user1', 'Action');
+insert into Pref_Genre
+values('0000001', 'user2', 'Comedy');
+insert into Pref_Genre
+values('0000002', 'user1', 'Documentary');
+insert into Pref_Genre
+values('0000004', 'boys', 'Comedy');
+
+insert into Mov_Genre
+values('00000001', 'Adventure');
+insert into Mov_Genre
+values('00000002', 'Comedy');
+insert into Mov_Genre
+values('00000003', 'Horror');
+insert into Mov_Genre
+values('00000004', 'Horror');
+insert into Mov_Genre
+values('00000005', 'Documentary');
+insert into Mov_Genre
+values('00000006', 'Animated');
+insert into Mov_Genre
+values('00000007', 'Adventure');
+insert into Mov_Genre
+values('00000008', 'Romantic Comedy');
+insert into Mov_Genre
+values('00000009', 'Comedy');
+insert into Mov_Genre
+values('00000010', 'Action');
+
+
